@@ -50,6 +50,8 @@ func Run(logger *slog.Logger) error {
 	protected.HandleFunc("GET /api/v1/images/{source}/{id}", s.image)
 	protected.HandleFunc("GET /api/v1/downloads", s.listDownloads)
 	protected.HandleFunc("POST /api/v1/downloads", s.createDownload)
+	protected.HandleFunc("PUT /api/v1/network/reconnect", s.reconnectNetwork)
+	protected.HandleFunc("DELETE /api/v1/peers/{id}", s.deletePeer)
 	protected.HandleFunc("GET /api/v1/storage", s.getStorage)
 	protected.HandleFunc("PUT /api/v1/storage", s.updateStorage)
 	protected.HandleFunc("GET /api/v1/storage/browse", s.browseStorage)
@@ -294,6 +296,45 @@ func (s *server) createDownload(w http.ResponseWriter, r *http.Request) {
 	}
 	job := s.transfers.start(peer, input.ItemID)
 	writeJSON(w, http.StatusAccepted, job)
+}
+
+func (s *server) reconnectNetwork(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		Coordinator string `json:"coordinator"`
+		NetworkKey  string `json:"networkKey"`
+	}
+	if err := decodeJSON(w, r, &input); err != nil {
+		writeError(w, http.StatusBadRequest, "Los datos de conexión no son válidos.")
+		return
+	}
+	candidate, err := s.store.reconnectNode(input.Coordinator, input.NetworkKey)
+	if err != nil {
+		writeError(w, http.StatusUnprocessableEntity, err.Error())
+		return
+	}
+	coordinator, err := registerWithCoordinator(candidate)
+	if err != nil {
+		writeError(w, http.StatusBadGateway, err.Error())
+		return
+	}
+	candidate.Peers = []Peer{coordinator}
+	if err := s.store.write(candidate); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, s.store.public(true))
+}
+
+func (s *server) deletePeer(w http.ResponseWriter, r *http.Request) {
+	if s.store.get().Mode != "coordinator" {
+		writeError(w, http.StatusForbidden, "Solo el coordinador puede eliminar servidores.")
+		return
+	}
+	if err := s.store.removePeer(r.PathValue("id")); err != nil {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, s.store.public(true))
 }
 
 func (s *server) getStorage(w http.ResponseWriter, _ *http.Request) {

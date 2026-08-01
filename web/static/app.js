@@ -97,6 +97,10 @@ function startApplication() {
     $('#invite-card').classList.remove('hidden');
     $('#invite-code').textContent = config.inviteCode;
   }
+  if (config.mode === 'node') {
+    $('#reconnect-form').classList.remove('hidden');
+    $('#reconnect-form').elements.coordinator.value = config.coordinator || '';
+  }
   renderPeers();
   loadCatalog();
   loadDownloads();
@@ -325,7 +329,9 @@ function renderPeers() {
     const row = element('article', 'peer-row');
     const info = element('div');
     info.append(element('strong', '', peer.name), element('small', '', peer.url));
-    row.append(info, element('small', '', 'Catálogo y transferencias'), element('span', 'status completed', 'Registrado'));
+    const action = state.config.mode === 'coordinator' ? element('button', 'text-button', 'Eliminar') : element('span', 'status completed', 'Registrado');
+    if (state.config.mode === 'coordinator') action.addEventListener('click', () => removePeer(peer, action));
+    row.append(info, element('small', '', 'Catálogo y transferencias'), action);
     list.append(row);
   });
 }
@@ -384,6 +390,42 @@ $('#copy-invite').addEventListener('click', async () => {
   await navigator.clipboard.writeText(state.config.inviteCode);
   showToast('Código copiado.');
 });
+
+$('#reconnect-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const button = form.querySelector('button[type=submit]');
+  $('#reconnect-error').textContent = '';
+  button.disabled = true;
+  try {
+    state.config = await api('/api/v1/network/reconnect', {
+      method: 'PUT', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(Object.fromEntries(new FormData(form)))
+    });
+    form.elements.networkKey.value = '';
+    renderPeers();
+    showToast('Conexión reparada correctamente.');
+    loadCatalog();
+  } catch (error) {
+    $('#reconnect-error').textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
+});
+
+async function removePeer(peer, button) {
+  if (!confirm(`¿Eliminar la conexión con ${peer.name}?`)) return;
+  button.disabled = true;
+  try {
+    state.config = await api(`/api/v1/peers/${encodeURIComponent(peer.id)}`, {method: 'DELETE'});
+    renderPeers();
+    loadCatalog();
+    showToast(`${peer.name} se ha eliminado.`);
+  } catch (error) {
+    showToast(error.message);
+    button.disabled = false;
+  }
+}
 
 $('#jellyfin-form').addEventListener('submit', async event => {
   event.preventDefault();

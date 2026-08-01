@@ -215,6 +215,37 @@ func (s *configStore) addPeer(peer Peer) error {
 	return s.write(cfg)
 }
 
+func (s *configStore) removePeer(id string) error {
+	cfg := s.get()
+	peers := make([]Peer, 0, len(cfg.Peers))
+	found := false
+	for _, peer := range cfg.Peers {
+		if peer.ID == id {
+			found = true
+			continue
+		}
+		peers = append(peers, peer)
+	}
+	if !found {
+		return errors.New("el servidor indicado no existe")
+	}
+	cfg.Peers = peers
+	return s.write(cfg)
+}
+
+func (s *configStore) reconnectNode(coordinator, networkKey string) (Config, error) {
+	cfg := s.get()
+	if cfg.Mode != "node" {
+		return Config{}, errors.New("solo un nodo puede volver a conectarse a un coordinador")
+	}
+	cfg.Coordinator = strings.TrimRight(strings.TrimSpace(coordinator), "/")
+	cfg.NetworkKey = strings.TrimSpace(networkKey)
+	if cfg.Coordinator == "" || cfg.NetworkKey == "" {
+		return Config{}, errors.New("la dirección y el código de invitación son obligatorios")
+	}
+	return cfg, nil
+}
+
 func (s *configStore) setAdminPassword(password string) error {
 	cfg := s.get()
 	if cfg.AdminHash != "" {

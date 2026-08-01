@@ -102,6 +102,14 @@
           <div class="settings-grid">
             <article class="settings-card"><span class="eyebrow">ESTE SERVIDOR</span><h2 id="local-node-name"></h2><dl><div><dt>Dirección</dt><dd id="local-node-url"></dd></div><div><dt>Bibliotecas</dt><dd id="local-library-count"></dd></div></dl></article>
             <article id="invite-card" class="settings-card hidden"><span class="eyebrow">INVITAR UN NODO</span><h2>Código de red</h2><p>Comparte este código únicamente con la persona que se unirá a tu red.</p><code id="invite-code"></code><button id="copy-invite" class="text-button">Copiar código</button></article>
+            <form id="reconnect-form" class="settings-card hidden">
+              <span class="eyebrow">REPARAR CONEXIÓN</span><h2>Volver a conectar</h2>
+              <p>Actualiza únicamente la conexión con el coordinador. Jellyfin, rutas y contraseña se conservarán.</p>
+              <label>Dirección del coordinador<input name="coordinator" type="url" required></label>
+              <label>Nuevo código de invitación<input name="networkKey" type="password" required autocomplete="off"></label>
+              <p id="reconnect-error" class="form-error" role="alert"></p>
+              <button class="button primary" type="submit">Comprobar y reconectar</button>
+            </form>
           </div>
           <div id="peer-list" class="peer-list"></div>
         </section>

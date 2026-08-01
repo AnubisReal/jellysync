@@ -1,6 +1,6 @@
 services:
   jellysync:
-    image: ghcr.io/anubisreal/jellysync:0.1.0
+    image: ghcr.io/anubisreal/jellysync:0.1.2
     container_name: jellysync
     restart: unless-stopped
     # Debe coincidir con el usuario que tiene acceso a las carpetas multimedia.
