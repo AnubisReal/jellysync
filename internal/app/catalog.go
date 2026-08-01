@@ -106,7 +106,11 @@ func fetchCatalog(cfg Config) ([]CatalogItem, error) {
 }
 
 func fetchSingleItem(cfg Config, itemID string) (CatalogItem, error) {
-	request, err := jellyfinRequest(http.MethodGet, cfg.JellyfinURL+"/Items/"+url.PathEscape(itemID), cfg.JellyfinAPIKey)
+	query := url.Values{}
+	query.Set("Ids", itemID)
+	query.Set("Fields", "ProviderIds,Path,MediaSources")
+	query.Set("Limit", "1")
+	request, err := jellyfinRequest(http.MethodGet, cfg.JellyfinURL+"/Items?"+query.Encode(), cfg.JellyfinAPIKey)
 	if err != nil {
 		return CatalogItem{}, err
 	}
@@ -118,10 +122,14 @@ func fetchSingleItem(cfg Config, itemID string) (CatalogItem, error) {
 	if response.StatusCode != http.StatusOK {
 		return CatalogItem{}, fmt.Errorf("Jellyfin no encontró el elemento (%s)", response.Status)
 	}
-	var item jellyfinItem
-	if err := json.NewDecoder(io.LimitReader(response.Body, 2<<20)).Decode(&item); err != nil {
+	var result jellyfinItemsResponse
+	if err := json.NewDecoder(io.LimitReader(response.Body, 2<<20)).Decode(&result); err != nil {
 		return CatalogItem{}, err
 	}
+	if len(result.Items) == 0 || result.Items[0].ID != itemID {
+		return CatalogItem{}, errors.New("Jellyfin no encontró el elemento")
+	}
+	item := result.Items[0]
 	size := int64(0)
 	if len(item.MediaSources) > 0 {
 		size = item.MediaSources[0].Size
