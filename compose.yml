@@ -1,0 +1,26 @@
+services:
+  jellysync:
+    image: ghcr.io/anubisreal/jellysync:0.1.0
+    container_name: jellysync
+    restart: unless-stopped
+    # Debe coincidir con el usuario que tiene acceso a las carpetas multimedia.
+    user: "1000:1000"
+    ports:
+      - "8090:8090"
+    environment:
+      TZ: Europe/Madrid
+      JELLYSYNC_ADDR: :8090
+      JELLYSYNC_DATA_DIR: /storage/.jellysync
+      JELLYSYNC_STORAGE_ROOT: /storage
+      # Etiqueta informativa que se mostrará en Ajustes.
+      JELLYSYNC_STORAGE_LABEL: /extraible2
+    volumes:
+      # Una única raíz autorizada; las subcarpetas se eligen desde la web.
+      - /extraible2:/storage
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "/jellysync", "healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

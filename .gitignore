@@ -1,0 +1,20 @@
+# Runtime data and secrets
+/data/
+/config/
+*.db
+*.db-shm
+*.db-wal
+*.pem
+*.key
+.env
+.env.*
+!.env.example
+
+# Build and editor files
+/bin/
+/dist/
+.DS_Store
+.idea/
+.vscode/
+coverage.out
+*.log

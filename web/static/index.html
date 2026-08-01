@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f4f5f2">
+    <title>JellySync</title>
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/layout-fixes.css">
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <section id="setup" class="setup-view hidden" aria-labelledby="setup-title">
+      <div class="setup-copy">
+        <span class="eyebrow">CONFIGURACIÓN INICIAL</span>
+        <h1 id="setup-title">Tu contenido,<br><em>entre servidores.</em></h1>
+        <p>Conecta esta instancia con Jellyfin y decide si crea una red privada o se une a una existente.</p>
+      </div>
+      <form id="setup-form" class="setup-card">
+        <div class="form-section"><span>01</span><div><strong>Este nodo</strong><small>Identidad y dirección accesible desde los demás servidores.</small></div></div>
+        <label>Nombre<input name="nodeName" required maxlength="80" placeholder="Servidor de Madrid"></label>
+        <label>Dirección pública <span>Necesaria para recibir conexiones</span><input name="publicUrl" type="url" placeholder="https://jellysync-madrid.example.com"></label>
+
+        <div class="form-section"><span>02</span><div><strong>Red privada</strong><small>Crea una red o utiliza la invitación de un amigo.</small></div></div>
+        <div class="mode-options">
+          <label class="mode-option selected"><input type="radio" name="mode" value="coordinator" checked><b>Crear red</b><small>Genera una invitación privada.</small></label>
+          <label class="mode-option"><input type="radio" name="mode" value="node"><b>Unirse</b><small>Conecta con otro JellySync.</small></label>
+        </div>
+        <div id="join-fields" class="hidden">
+          <label>Dirección del coordinador<input name="coordinator" type="url" placeholder="https://jellysync-amigo.example.com"></label>
+          <label>Código de invitación<input name="networkKey" type="password" autocomplete="off" placeholder="Código compartido por el coordinador"></label>
+        </div>
+
+        <div class="form-section"><span>03</span><div><strong>Jellyfin local</strong><small>La clave nunca abandona esta instancia.</small></div></div>
+        <label>Dirección de Jellyfin<input name="jellyfinUrl" type="url" required placeholder="http://jellyfin:8096"></label>
+        <label>API key<input name="jellyfinApiKey" type="password" required autocomplete="off" placeholder="API key creada en Jellyfin"></label>
+
+        <div class="form-section"><span>04</span><div><strong>Acceso administrativo</strong><small>Protege el panel, las invitaciones y las descargas.</small></div></div>
+        <label>Contraseña administrativa <span>Mínimo 10 caracteres</span><input name="adminPassword" type="password" required minlength="10" autocomplete="new-password"></label>
+        <p id="setup-error" class="form-error" role="alert"></p>
+        <button class="button primary wide" type="submit">Comprobar y configurar <span>→</span></button>
+      </form>
+    </section>
+
+    <section id="login" class="login-view hidden" aria-labelledby="login-title">
+      <form id="login-form" class="login-card">
+        <span class="eyebrow">ACCESO PRIVADO</span>
+        <h1 id="login-title">Bienvenido.</h1>
+        <p id="login-copy">Introduce la contraseña administrativa de esta instancia.</p>
+        <label>Contraseña<input name="password" type="password" required minlength="10" autocomplete="current-password" autofocus></label>
+        <p id="login-error" class="form-error" role="alert"></p>
+        <button class="button primary wide" type="submit">Entrar <span>→</span></button>
+      </form>
+    </section>
+
+    <div id="application" class="application hidden">
+      <aside class="sidebar">
+        <div class="node-identity"><span id="node-initial"></span><div><strong id="sidebar-node"></strong><small id="sidebar-role"></small></div></div>
+        <nav aria-label="Navegación principal">
+          <a class="nav-item active" data-page="discover" href="/inicio"><span>⌕</span>Descubrir</a>
+          <a class="nav-item" data-page="downloads" href="/descargas"><span>↓</span>Descargas <i id="download-badge" class="badge hidden">0</i></a>
+          <a class="nav-item" data-page="servers" href="/servidores"><span>◎</span>Servidores</a>
+          <a class="nav-item" data-page="settings" href="/ajustes"><span>⚙</span>Ajustes</a>
+        </nav>
+        <div class="connection-state"><i></i><span id="peer-summary">Comprobando red</span></div>
+      </aside>
+
+      <main class="content">
+        <section id="page-discover" class="page">
+          <header class="page-header">
+            <div><span class="eyebrow">CATÁLOGO COMPARTIDO</span><h1>Descubrir</h1><p>Contenido disponible en los servidores conectados.</p></div>
+            <div class="destination"><small>Descargar en</small><strong id="destination-node"></strong></div>
+          </header>
+
+          <div class="search-row">
+            <label class="search"><span>⌕</span><input id="search-input" type="search" placeholder="Buscar películas, series o episodios…" aria-label="Buscar contenido"></label>
+            <div class="source-picker">
+              <span>Servidor de origen</span>
+              <select id="source-filter" aria-label="Servidor de origen"><option value="all">Todos los servidores</option></select>
+            </div>
+          </div>
+
+          <div class="filter-row" role="group" aria-label="Tipo de contenido">
+            <button class="filter active" data-type="all">Todo</button>
+            <button class="filter" data-type="Movie">Películas recientes</button>
+            <button class="filter" data-type="Episode">Episodios recientes</button>
+            <button class="filter" data-type="Series">Series</button>
+            <button id="refresh-catalog" class="refresh-button">Actualizar</button>
+          </div>
+
+          <div id="catalog-message" class="catalog-message hidden"></div>
+          <div id="catalog-grid" class="catalog-grid" aria-live="polite"></div>
+        </section>
+
+        <section id="page-downloads" class="page hidden">
+          <header class="page-header"><div><span class="eyebrow">ACTIVIDAD</span><h1>Descargas</h1><p>Transferencias hacia este servidor.</p></div></header>
+          <div id="download-list" class="download-list"></div>
+        </section>
+
+        <section id="page-servers" class="page hidden">
+          <header class="page-header"><div><span class="eyebrow">RED PRIVADA</span><h1>Servidores</h1><p>Nodos que pueden compartir contenido contigo.</p></div></header>
+          <div class="settings-grid">
+            <article class="settings-card"><span class="eyebrow">ESTE SERVIDOR</span><h2 id="local-node-name"></h2><dl><div><dt>Dirección</dt><dd id="local-node-url"></dd></div><div><dt>Bibliotecas</dt><dd id="local-library-count"></dd></div></dl></article>
+            <article id="invite-card" class="settings-card hidden"><span class="eyebrow">INVITAR UN NODO</span><h2>Código de red</h2><p>Comparte este código únicamente con la persona que se unirá a tu red.</p><code id="invite-code"></code><button id="copy-invite" class="text-button">Copiar código</button></article>
+          </div>
+          <div id="peer-list" class="peer-list"></div>
+        </section>
+
+        <section id="page-settings" class="page hidden">
+          <header class="page-header"><div><span class="eyebrow">CONFIGURACIÓN</span><h1>Ajustes</h1><p>Conexión con Jellyfin y organización de los archivos.</p></div></header>
+          <div class="settings-stack">
+            <form id="storage-form" class="settings-card compact-form storage-form">
+              <span class="eyebrow">ALMACENAMIENTO</span><h2>Ubicaciones de esta instancia</h2>
+              <p>Docker permite a JellySync trabajar únicamente dentro de <strong id="storage-label"></strong>, montado en el contenedor como <code id="storage-root"></code>.</p>
+              <label>Destino final de películas</label>
+              <div class="path-field"><input name="moviesDir" required><button type="button" data-browse="moviesDir">Elegir</button></div>
+              <label>Destino final de series</label>
+              <div class="path-field"><input name="seriesDir" required><button type="button" data-browse="seriesDir">Elegir</button></div>
+              <label>Descargas temporales</label>
+              <div class="path-field"><input name="downloadDir" required><button type="button" data-browse="downloadDir">Elegir</button></div>
+              <p class="storage-help">Los archivos permanecen en Descargas temporales hasta completar su verificación. Después pasan al destino final correspondiente.</p>
+              <p id="storage-error" class="form-error" role="alert"></p>
+              <button class="button primary" type="submit">Comprobar y guardar rutas</button>
+            </form>
+            <form id="jellyfin-form" class="settings-card compact-form">
+              <span class="eyebrow">SERVIDOR MULTIMEDIA</span><h2>Conexión Jellyfin</h2>
+              <label>Dirección<input name="url" type="url" required></label>
+              <label>Nueva API key <span>Déjala vacía para conservar la actual</span><input name="apiKey" type="password" autocomplete="off"></label>
+              <p id="jellyfin-error" class="form-error" role="alert"></p>
+              <button class="button primary" type="submit">Comprobar y guardar</button>
+            </form>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <dialog id="detail-dialog" class="detail-dialog">
+      <button id="close-detail" class="dialog-close" aria-label="Cerrar">×</button>
+      <div id="detail-content"></div>
+    </dialog>
+    <dialog id="folder-dialog" class="folder-dialog">
+      <header><div><span class="eyebrow">VOLUMEN AUTORIZADO</span><h2>Elegir carpeta</h2></div><button id="close-folder" class="folder-close" aria-label="Cerrar">×</button></header>
+      <div class="folder-location"><button id="folder-up" type="button">← Subir</button><code id="folder-current"></code></div>
+      <div id="folder-list" class="folder-list"></div>
+      <footer><button id="select-folder" class="button primary" type="button">Usar esta carpeta</button></footer>
+    </dialog>
+    <div id="toast" class="toast hidden" role="status"></div>
+  </body>
+</html>
